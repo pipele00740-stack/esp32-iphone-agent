@@ -16,10 +16,29 @@ jobs:
           arduino-cli core install esp32:esp32@3.3.7
           arduino-cli lib install "NimBLE-Arduino@2.5.1"
 
+      - name: Patch NimBLE Settings for Cardputer
+        run: |
+          NIMCONFIG="/home/runner/Arduino/libraries/NimBLE-Arduino/src/nimconfig.h"
+          if [ -f "$NIMCONFIG" ]; then
+            echo "Patching nimconfig.h..."
+            echo "" >> "$NIMCONFIG"
+            echo "#undef CONFIG_BT_NIMBLE_MAX_CONNECTIONS" >> "$NIMCONFIG"
+            echo "#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5" >> "$NIMCONFIG"
+            echo "#undef CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM" >> "$NIMCONFIG"
+            echo "#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1" >> "$NIMCONFIG"
+            echo "#undef CONFIG_BT_NIMBLE_ROLE_CENTRAL" >> "$NIMCONFIG"
+            echo "#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0" >> "$NIMCONFIG"
+            echo "#undef CONFIG_BT_NIMBLE_ROLE_OBSERVER" >> "$NIMCONFIG"
+            echo "#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0" >> "$NIMCONFIG"
+            echo "#undef CONFIG_BT_NIMBLE_EXT_ADV" >> "$NIMCONFIG"
+            echo "#define CONFIG_BT_NIMBLE_EXT_ADV 0" >> "$NIMCONFIG"
+          fi
+
       - name: Compile Firmware
         run: |
           arduino-cli compile \
             --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc \
+            --build-property "compiler.cpp.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=5 -DCONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM=1 -DCONFIG_BT_NIMBLE_ROLE_CENTRAL=0 -DCONFIG_BT_NIMBLE_ROLE_OBSERVER=0 -DCONFIG_BT_NIMBLE_EXT_ADV=0" \
             --output-dir ./out \
             hardware/hid_bridge
 
