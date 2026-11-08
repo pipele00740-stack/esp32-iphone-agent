@@ -16,24 +16,6 @@ jobs:
           arduino-cli core install esp32:esp32@3.3.7
           arduino-cli lib install "NimBLE-Arduino@2.5.1"
 
-      - name: Patch All NimBLE Settings for Cardputer
-        run: |
-          NIMCONFIG="/home/runner/Arduino/libraries/NimBLE-Arduino/src/nimconfig.h"
-          if [ -f "$NIMCONFIG" ]; then
-            echo "Patching all required NimBLE macros..."
-            echo "" >> "$NIMCONFIG"
-            echo "#undef CONFIG_BT_NIMBLE_MAX_CONNECTIONS" >> "$NIMCONFIG"
-            echo "#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5" >> "$NIMCONFIG"
-            echo "#undef CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM" >> "$NIMCONFIG"
-            echo "#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1" >> "$NIMCONFIG"
-            echo "#undef CONFIG_BT_NIMBLE_L2CAP_COC_MPS" >> "$NIMCONFIG"
-            echo "#define CONFIG_BT_NIMBLE_L2CAP_COC_MPS 247" >> "$NIMCONFIG"
-            echo "#undef CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU" >> "$NIMCONFIG"
-            echo "#define CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU 517" >> "$NIMCONFIG"
-            echo "#undef CONFIG_BT_NIMBLE_HS_LOG_LVL" >> "$NIMCONFIG"
-            echo "#define CONFIG_BT_NIMBLE_HS_LOG_LVL 5" >> "$NIMCONFIG"
-          fi
-
       - name: Compile Firmware
         run: |
           arduino-cli compile \
