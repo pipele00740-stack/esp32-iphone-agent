@@ -5,35 +5,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compile Firmware
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          ./bin/arduino-cli config init
-          ./bin/arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          ./bin/arduino-cli core update-index
-          ./bin/arduino-cli core install esp32:esp32@3.3.7
-          ./bin/arduino-cli lib install "NimBLE-Arduino@2.5.1"
-          
-          # تعديل إعدادات NimBLE باش يدوز static_assert ديال البروجي
-          NIMCONFIG=$(find /home/runner/Arduino/libraries/NimBLE-Arduino -name "nimconfig.h")
-          echo "" >> "$NIMCONFIG"
-          echo "#undef CONFIG_BT_NIMBLE_MAX_CONNECTIONS" >> "$NIMCONFIG"
-          echo "#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5" >> "$NIMCONFIG"
-          echo "#undef CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM" >> "$NIMCONFIG"
-          echo "#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1" >> "$NIMCONFIG"
-          echo "#undef CONFIG_BT_NIMBLE_ROLE_CENTRAL" >> "$NIMCONFIG"
-          echo "#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0" >> "$NIMCONFIG"
-          echo "#undef CONFIG_BT_NIMBLE_ROLE_OBSERVER" >> "$NIMCONFIG"
-          echo "#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0" >> "$NIMCONFIG"
-          echo "#undef CONFIG_BT_NIMBLE_EXT_ADV" >> "$NIMCONFIG"
-          echo "#define CONFIG_BT_NIMBLE_EXT_ADV 0" >> "$NIMCONFIG"
 
-          ./bin/arduino-cli compile \
+      - name: Compile Firmware Exactly Like Official Repo
+        run: |
+          # 1. تثبيت arduino-cli
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          export PATH="$PWD/bin:$PATH"
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@3.3.7
+          arduino-cli lib install "NimBLE-Arduino@2.5.1"
+
+          # 2. إذا كان البروجي فيه سكربت رسمي أو إعدادات فـ hardware، نطبقوها على جميع ملفات NimBLE
+          LIB_DIR="/home/runner/Arduino/libraries/NimBLE-Arduino/src"
+          for f in $(find "$LIB_DIR" -name "*.h"); do
+            sed -i 's/#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS.*/#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5/g' "$f" || true
+            sed -i 's/#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM.*/#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1/g' "$f" || true
+            sed -i 's/#define CONFIG_BT_NIMBLE_ROLE_CENTRAL.*/#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0/g' "$f" || true
+            sed -i 's/#define CONFIG_BT_NIMBLE_ROLE_OBSERVER.*/#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0/g' "$f" || true
+            sed -i 's/#define CONFIG_BT_NIMBLE_EXT_ADV.*/#define CONFIG_BT_NIMBLE_EXT_ADV 0/g' "$f" || true
+          done
+
+          # 3. إضافة الإعدادات مباشرة في بداية nimconfig.h قبل أي include
+          NIMCONFIG="$LIB_DIR/nimconfig.h"
+          sed -i '1i #define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5\n#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1\n#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0\n#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0\n#define CONFIG_BT_NIMBLE_EXT_ADV 0\n#define MYNEWT_VAL_BLE_MAX_CONNECTIONS 5\n#define MYNEWT_VAL_BLE_L2CAP_COC_MAX_NUM 1\n#define MYNEWT_VAL_BLE_ROLE_CENTRAL 0\n#define MYNEWT_VAL_BLE_ROLE_OBSERVER 0\n#define MYNEWT_VAL_BLE_EXT_ADV 0' "$NIMCONFIG"
+
+          # 4. كومبيلاسيون الفيرموير
+          arduino-cli compile \
             --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc \
-            --build-property "compiler.cpp.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=5 -DCONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM=1 -DCONFIG_BT_NIMBLE_ROLE_CENTRAL=0 -DCONFIG_BT_NIMBLE_ROLE_OBSERVER=0 -DCONFIG_BT_NIMBLE_EXT_ADV=0" \
-            --build-property "compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=5 -DCONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM=1 -DCONFIG_BT_NIMBLE_ROLE_CENTRAL=0 -DCONFIG_BT_NIMBLE_ROLE_OBSERVER=0 -DCONFIG_BT_NIMBLE_EXT_ADV=0" \
             --output-dir ./out \
             hardware/hid_bridge
+
       - name: Upload Bin
         uses: actions/upload-artifact@v4
         with:
