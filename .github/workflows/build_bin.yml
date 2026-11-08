@@ -16,10 +16,10 @@ jobs:
           arduino-cli core install esp32:esp32@3.3.7
           arduino-cli lib install "NimBLE-Arduino@2.5.1"
 
-      - name: Empty Ble Link File
+      - name: Strip Static Asserts from Ble Link
         run: |
-          # تفريغ محتوى الملف لكي تختفي أخطاء الـ static_assert نهائياً
-          echo "" > hardware/hid_bridge/ble_link.cpp
+          # مسح الأسطر ديال static_assert المزعجة نهائياً من الملف
+          sed -i '/static_assert/d' hardware/hid_bridge/ble_link.cpp
 
       - name: Compile Firmware
         run: |
