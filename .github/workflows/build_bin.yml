@@ -13,9 +13,29 @@ jobs:
           ./bin/arduino-cli core update-index
           ./bin/arduino-cli core install esp32:esp32@3.3.7
           ./bin/arduino-cli lib install "NimBLE-Arduino@2.5.1"
-          ./bin/arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --output-dir ./out hardware/hid_bridge
+          
+          # تعديل إعدادات NimBLE باش يدوز static_assert ديال البروجي
+          NIMCONFIG=$(find /home/runner/Arduino/libraries/NimBLE-Arduino -name "nimconfig.h")
+          echo "" >> "$NIMCONFIG"
+          echo "#undef CONFIG_BT_NIMBLE_MAX_CONNECTIONS" >> "$NIMCONFIG"
+          echo "#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5" >> "$NIMCONFIG"
+          echo "#undef CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM" >> "$NIMCONFIG"
+          echo "#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1" >> "$NIMCONFIG"
+          echo "#undef CONFIG_BT_NIMBLE_ROLE_CENTRAL" >> "$NIMCONFIG"
+          echo "#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0" >> "$NIMCONFIG"
+          echo "#undef CONFIG_BT_NIMBLE_ROLE_OBSERVER" >> "$NIMCONFIG"
+          echo "#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0" >> "$NIMCONFIG"
+          echo "#undef CONFIG_BT_NIMBLE_EXT_ADV" >> "$NIMCONFIG"
+          echo "#define CONFIG_BT_NIMBLE_EXT_ADV 0" >> "$NIMCONFIG"
+
+          ./bin/arduino-cli compile \
+            --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc \
+            --build-property "compiler.cpp.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=5 -DCONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM=1 -DCONFIG_BT_NIMBLE_ROLE_CENTRAL=0 -DCONFIG_BT_NIMBLE_ROLE_OBSERVER=0 -DCONFIG_BT_NIMBLE_EXT_ADV=0" \
+            --build-property "compiler.c.extra_flags=-DCONFIG_BT_NIMBLE_MAX_CONNECTIONS=5 -DCONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM=1 -DCONFIG_BT_NIMBLE_ROLE_CENTRAL=0 -DCONFIG_BT_NIMBLE_ROLE_OBSERVER=0 -DCONFIG_BT_NIMBLE_EXT_ADV=0" \
+            --output-dir ./out \
+            hardware/hid_bridge
       - name: Upload Bin
         uses: actions/upload-artifact@v4
         with:
           name: cardputer-agent-bin
-          path: ./out/hid_bridge.ino.bin
+          path: ./out/*.bin
