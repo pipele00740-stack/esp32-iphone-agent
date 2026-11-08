@@ -1,37 +1,23 @@
 name: Build Cardputer Bin
 on: [workflow_dispatch, push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile Firmware Exactly Like Official Repo
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install Platform and Libraries
         run: |
-          # 1. تثبيت arduino-cli
-          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-          export PATH="$PWD/bin:$PATH"
-          arduino-cli config init
-          arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-          arduino-cli core update-index
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core install esp32:esp32@3.3.7
           arduino-cli lib install "NimBLE-Arduino@2.5.1"
 
-          # 2. إذا كان البروجي فيه سكربت رسمي أو إعدادات فـ hardware، نطبقوها على جميع ملفات NimBLE
-          LIB_DIR="/home/runner/Arduino/libraries/NimBLE-Arduino/src"
-          for f in $(find "$LIB_DIR" -name "*.h"); do
-            sed -i 's/#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS.*/#define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5/g' "$f" || true
-            sed -i 's/#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM.*/#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1/g' "$f" || true
-            sed -i 's/#define CONFIG_BT_NIMBLE_ROLE_CENTRAL.*/#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0/g' "$f" || true
-            sed -i 's/#define CONFIG_BT_NIMBLE_ROLE_OBSERVER.*/#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0/g' "$f" || true
-            sed -i 's/#define CONFIG_BT_NIMBLE_EXT_ADV.*/#define CONFIG_BT_NIMBLE_EXT_ADV 0/g' "$f" || true
-          done
-
-          # 3. إضافة الإعدادات مباشرة في بداية nimconfig.h قبل أي include
-          NIMCONFIG="$LIB_DIR/nimconfig.h"
-          sed -i '1i #define CONFIG_BT_NIMBLE_MAX_CONNECTIONS 5\n#define CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM 1\n#define CONFIG_BT_NIMBLE_ROLE_CENTRAL 0\n#define CONFIG_BT_NIMBLE_ROLE_OBSERVER 0\n#define CONFIG_BT_NIMBLE_EXT_ADV 0\n#define MYNEWT_VAL_BLE_MAX_CONNECTIONS 5\n#define MYNEWT_VAL_BLE_L2CAP_COC_MAX_NUM 1\n#define MYNEWT_VAL_BLE_ROLE_CENTRAL 0\n#define MYNEWT_VAL_BLE_ROLE_OBSERVER 0\n#define MYNEWT_VAL_BLE_EXT_ADV 0' "$NIMCONFIG"
-
-          # 4. كومبيلاسيون الفيرموير
+      - name: Compile Firmware
+        run: |
           arduino-cli compile \
             --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc \
             --output-dir ./out \
