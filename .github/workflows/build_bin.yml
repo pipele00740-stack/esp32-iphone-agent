@@ -1,0 +1,21 @@
+name: Build Cardputer Bin
+on: [workflow_dispatch, push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Firmware
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          ./bin/arduino-cli config init
+          ./bin/arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          ./bin/arduino-cli core update-index
+          ./bin/arduino-cli core install esp32:esp32@3.3.7
+          ./bin/arduino-cli lib install "NimBLE-Arduino@2.5.1"
+          ./bin/arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --output-dir ./out hardware/hid_bridge
+      - name: Upload Bin
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardputer-agent-bin
+          path: ./out/hid_bridge.ino.bin
